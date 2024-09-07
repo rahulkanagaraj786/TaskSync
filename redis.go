@@ -7,54 +7,50 @@ import (
 	"github.com/go-redis/redis"
 )
 
-// Redis keys for storing jobs
-var scheduledJobsKey = "scheduledJobs"
-var backupJobsKey = "backupJobs"
+var scheduleRedisKey = "jobSet"
+var backupRedisKey = "mySet"
 
-// Redis client configuration
 var redisClient = redis.NewClient(&redis.Options{
-	Addr:       "localhost:6379", // Redis server address
-	PoolSize:   5,                // Max connection pool size
-	MaxRetries: 2,                // Maximum retry attempts
-	DB:         0,                // Default Redis database
+	Addr:       "localhost:6379",
+	PoolSize:   5,
+	MaxRetries: 2,
+	// Password:   "",
+	DB: 0,
 })
 
-// Remove a job from the specified Redis set
-func removeJobFromRedis(setName, jobName string) {
-	err := redisClient.ZRem(setName, jobName).Err()
+func removeJobFromRedis(setName string, jobName string) {
+	err := redisClient.ZRem(setName, jobName)
 	if err != nil {
-		fmt.Printf("[ERROR] Failed to remove job '%s' from Redis: %v\n", jobName, err)
+		// fmt.Println("Error in removing job from redis : " + jobName)
+		// panic(err)
 	}
 }
 
-// Add a job to the specified Redis set with a given timestamp
 func addJobToRedis(setName string, timestamp float64, jobName string) {
 	err := redisClient.ZAdd(setName, redis.Z{
-		Score:  timestamp, // Job timestamp as score
-		Member: jobName,   // Job name as member
+		Score:  float64(timestamp),
+		Member: jobName,
 	}).Err()
 	if err != nil {
-		fmt.Printf("[ERROR] Failed to add job '%s' to Redis: %v\n", jobName, err)
+		fmt.Println("Error in adding job to redis : " + jobName)
 	}
 }
 
-// Fetch jobs from the backup set with a timestamp less than or equal to the given timestamp
-func findJobsByTime(timestamp float64) []redis.Z {
-	jobs, err := redisClient.ZRangeByScoreWithScores(backupJobsKey, redis.ZRangeBy{
-		Min: "0",
+func findJobByTime(timestamp float64) []redis.Z {
+	val, err := redisClient.ZRangeByScoreWithScores(backupRedisKey, redis.ZRangeBy{
+		Min: string(0),
 		Max: fmt.Sprintf("%f", timestamp),
 	}).Result()
 	if err != nil {
-		fmt.Println("[ERROR] Failed to fetch jobs from Redis:", err)
+		fmt.Println("Error in fetching backup jobs from redis")
 	}
-	return jobs
+	return val
 }
 
-// Fetch the next scheduled job from the Redis set
-func fetchNextJob() redis.ZWithKey {
-	job, err := redisClient.BZPopMin(3*time.Second, scheduledJobsKey).Result()
+func fetchJob() redis.ZWithKey {
+	val, err := redisClient.BZPopMin(3*time.Second, scheduleRedisKey).Result()
 	if err != nil {
-		fmt.Printf("[ERROR] Failed to fetch the next job: %v\n", err)
+		// fmt.Println("Error in getting job :", err.Error())
 	}
-	return job
+	return val
 }

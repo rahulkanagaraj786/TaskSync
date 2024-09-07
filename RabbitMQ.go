@@ -2,58 +2,38 @@ package main
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/streadway/amqp"
 )
 
-// Separate goroutine for sending messages to RabbitMQ
-func mqMessageSender() {
-	// Establish connection to RabbitMQ
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
-	if err != nil {
-		log.Fatalf("[ERROR] Failed to connect to RabbitMQ: %v", err)
-	}
+// Seperate Routine to send MQ message
+func sendToMQ() {
+	conn, _ := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	defer conn.Close()
-
-	// Open a channel
-	channel, err := conn.Channel()
-	if err != nil {
-		log.Fatalf("[ERROR] Failed to open a channel: %v", err)
-	}
-	defer channel.Close()
-
-	// Declare a queue
-	queue, err := channel.QueueDeclare(
-		"taskQueue", // Queue name
-		false,       // Durable
-		false,       // Auto-delete when unused
-		false,       // Exclusive
-		false,       // No-wait
-		nil,         // Additional arguments
+	ch, _ := conn.Channel()
+	defer ch.Close()
+	q, _ := ch.QueueDeclare(
+		"hello", // name
+		false,   // durable
+		false,   // delete when unused
+		false,   // exclusive
+		false,   // no-wait
+		nil,     // arguments
 	)
-	if err != nil {
-		log.Fatalf("[ERROR] Failed to declare a queue: %v", err)
-	}
-
-	// Infinite loop for sending messages from the channel
+	// count := 0
 	for {
-		message := <-jobQueue // Updated channel name
-		fmt.Println("Sending job message:", message)
-
-		// Publish the message to RabbitMQ
-		err = channel.Publish(
-			"",         // Default exchange
-			queue.Name, // Routing key (queue name)
-			false,      // Mandatory flag
-			false,      // Immediate flag
+		message := <-msgCh
+		// count++
+		// fmt.Println("count : ", count, " Time:", currentTime())
+		fmt.Println("Sending message:", message)
+		ch.Publish(
+			"",     // exchange
+			q.Name, // routing key
+			false,  // mandatory
+			false,  // immediate
 			amqp.Publishing{
 				ContentType: "text/plain",
 				Body:        []byte(message),
-			},
-		)
-		if err != nil {
-			log.Printf("[ERROR] Failed to publish message: %v", err)
-		}
+			})
 	}
 }
