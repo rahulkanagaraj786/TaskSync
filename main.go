@@ -34,7 +34,7 @@ func main() {
 	for i := 0; i < 5; i++ {
 		go sendToMQ()
 	}
-	// test() // Uncomment to schedule jobs for testing
+	// test() 
 	http.HandleFunc("/", createJobHandler)
 	log.Fatal(http.ListenAndServe(":3000", nil))
 
